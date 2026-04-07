@@ -13,19 +13,25 @@ import os
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 # ------------------ LOAD MODEL ------------------
-@st.cache_resource  # avoids downloading every time
+@st.cache_resource
 def load_model():
     model = models.resnet18(pretrained=False)
     model.fc = nn.Linear(model.fc.in_features, 4)
 
     file_id = "1exhA8eaeUTa6XywUX0FoeSUUpEGppJa1"
-    url = f"https://drive.google.com/uc?id={file_id}"
     output = "resnet_model.pth"
 
-    # Download only if not already present
+    # ✅ Force correct download from Google Drive
     if not os.path.exists(output):
-        gdown.download(url, output, quiet=False, fuzzy=True)
+        url = f"https://drive.google.com/uc?export=download&id={file_id}"
+        gdown.download(url, output, quiet=False)
 
+    # ✅ Check file integrity (VERY IMPORTANT)
+    file_size = os.path.getsize(output)
+    if file_size < 1000000:
+        raise Exception("❌ Model download failed. File is corrupted.")
+
+    # ✅ Load model
     model.load_state_dict(torch.load(output, map_location=device))
     model = model.to(device)
     model.eval()
@@ -34,6 +40,7 @@ def load_model():
 
 model = load_model()
 
+# ------------------ CLASS NAMES ------------------
 class_names = ['anomaly', 'masked', 'normal', 'theft']
 
 # ------------------ TRANSFORM ------------------
@@ -58,14 +65,20 @@ def predict_video(video_file):
     cap = cv2.VideoCapture(tfile.name)
     predictions = []
 
+    frame_count = 0
+
     while cap.isOpened():
         ret, frame = cap.read()
         if not ret:
             break
 
-        image = Image.fromarray(cv2.cvtColor(frame, cv2.COLOR_BGR2RGB))
-        label = predict_image(image)
-        predictions.append(label)
+        # ✅ Process every 5th frame (faster & stable)
+        if frame_count % 5 == 0:
+            image = Image.fromarray(cv2.cvtColor(frame, cv2.COLOR_BGR2RGB))
+            label = predict_image(image)
+            predictions.append(label)
+
+        frame_count += 1
 
     cap.release()
 
@@ -80,6 +93,7 @@ st.title("🔍 Surveillance Detection App")
 
 option = st.radio("Choose input type:", ["Image", "Video"])
 
+# -------- IMAGE --------
 if option == "Image":
     uploaded_file = st.file_uploader("Upload Image", type=["jpg", "png", "jpeg"])
 
@@ -90,6 +104,7 @@ if option == "Image":
         result = predict_image(image)
         st.success(f"Prediction: {result}")
 
+# -------- VIDEO --------
 elif option == "Video":
     uploaded_file = st.file_uploader("Upload Video", type=["mp4", "avi"])
 
