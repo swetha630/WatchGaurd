@@ -6,25 +6,33 @@ from PIL import Image
 import cv2
 from collections import Counter
 import tempfile
+import gdown
+import os
 
 # ------------------ DEVICE ------------------
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 # ------------------ LOAD MODEL ------------------
-model = models.resnet18(pretrained=False)
-model.fc = nn.Linear(model.fc.in_features, 4)
+@st.cache_resource  # avoids downloading every time
+def load_model():
+    model = models.resnet18(pretrained=False)
+    model.fc = nn.Linear(model.fc.in_features, 4)
 
-import gdown
+    file_id = "1exhA8eaeUTa6XywUX0FoeSUUpEGppJa1"
+    url = f"https://drive.google.com/uc?id={file_id}"
+    output = "resnet_model.pth"
 
-# Download model from Google Drive
-url = "https://drive.google.com/file/d/1exhA8eaeUTa6XywUX0FoeSUUpEGppJa1/view?usp=sharing"
-output = "resnet_model.pth"
+    # Download only if not already present
+    if not os.path.exists(output):
+        gdown.download(url, output, quiet=False, fuzzy=True)
 
-gdown.download(url, output, quiet=False)
+    model.load_state_dict(torch.load(output, map_location=device))
+    model = model.to(device)
+    model.eval()
 
-model.load_state_dict(torch.load(output, map_location=device))
-model = model.to(device)
-model.eval()
+    return model
+
+model = load_model()
 
 class_names = ['anomaly', 'masked', 'normal', 'theft']
 
@@ -61,6 +69,9 @@ def predict_video(video_file):
 
     cap.release()
 
+    if len(predictions) == 0:
+        return "No frames detected"
+
     final_pred = Counter(predictions).most_common(1)[0][0]
     return final_pred
 
@@ -73,7 +84,7 @@ if option == "Image":
     uploaded_file = st.file_uploader("Upload Image", type=["jpg", "png", "jpeg"])
 
     if uploaded_file:
-        image = Image.open(uploaded_file)
+        image = Image.open(uploaded_file).convert("RGB")
         st.image(image, caption="Uploaded Image", use_column_width=True)
 
         result = predict_image(image)
