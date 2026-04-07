@@ -14,7 +14,15 @@ device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 model = models.resnet18(pretrained=False)
 model.fc = nn.Linear(model.fc.in_features, 4)
 
-model.load_state_dict(torch.load("resnet_model.pth", map_location=device))
+import gdown
+
+# Download model from Google Drive
+url = "/content/resnet_model.pth"
+output = "resnet_model.pth"
+
+gdown.download(url, output, quiet=False)
+
+model.load_state_dict(torch.load(output, map_location=device))
 model = model.to(device)
 model.eval()
 
