@@ -17,7 +17,7 @@ model.fc = nn.Linear(model.fc.in_features, 4)
 import gdown
 
 # Download model from Google Drive
-url = "/content/resnet_model.pth"
+url = "https://drive.google.com/file/d/1exhA8eaeUTa6XywUX0FoeSUUpEGppJa1/view?usp=sharing"
 output = "resnet_model.pth"
 
 gdown.download(url, output, quiet=False)
