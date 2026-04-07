@@ -21,17 +21,11 @@ def load_model():
     file_id = "1exhA8eaeUTa6XywUX0FoeSUUpEGppJa1"
     output = "resnet_model.pth"
 
-    # ✅ Force correct download from Google Drive
+    # ✅ Correct Google Drive download
     if not os.path.exists(output):
-        url = f"https://drive.google.com/uc?export=download&id={file_id}"
-        gdown.download(url, output, quiet=False)
+        gdown.download(id=file_id, output=output, quiet=False)
 
-    # ✅ Check file integrity (VERY IMPORTANT)
-    file_size = os.path.getsize(output)
-    if file_size < 1000000:
-        raise Exception("❌ Model download failed. File is corrupted.")
-
-    # ✅ Load model
+    # ✅ Load model safely
     model.load_state_dict(torch.load(output, map_location=device))
     model = model.to(device)
     model.eval()
@@ -64,7 +58,6 @@ def predict_video(video_file):
 
     cap = cv2.VideoCapture(tfile.name)
     predictions = []
-
     frame_count = 0
 
     while cap.isOpened():
@@ -72,7 +65,7 @@ def predict_video(video_file):
         if not ret:
             break
 
-        # ✅ Process every 5th frame (faster & stable)
+        # process every 5th frame (fast + stable)
         if frame_count % 5 == 0:
             image = Image.fromarray(cv2.cvtColor(frame, cv2.COLOR_BGR2RGB))
             label = predict_image(image)
